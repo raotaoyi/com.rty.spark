@@ -21,7 +21,12 @@ public class KafkaSaveTableConsumer extends AbstractKafkaConsumer {
 
     @Override
     protected void process(ConsumerRecords<String, String> records) {
+        //获取数据,组装入表的数据
+        records.forEach(record->{
 
+        });
+        //选择策略，数据的保存
+        dataSaveStrategies.stream().forEach(DataSaveStrategy::save);
     }
 
 }
