@@ -56,14 +56,12 @@ public abstract class AbstractKafkaConsumer {
         while (true) {
             //kafka拉取数据
             records = consumer.poll(500);
-            Map<String, String> result = new HashMap<>();
             records.forEach(record -> {
-                result.put(record.key(), record.value());
                 TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
                 long offSet = record.offset() + 1;
                 currOffsets.put(topicPartition, new OffsetAndMetadata(offSet, ""));
             });
-            process(result);
+            process(records);
             //拉取之后手动提交kafka的位移
             submitAsyncOffset(consumer, currOffsets);
         }
@@ -80,7 +78,7 @@ public abstract class AbstractKafkaConsumer {
         );
     }
 
-    protected abstract void process(Map<String, String> result);
+    protected abstract void process(ConsumerRecords<String, String> records );
 
     private void sleep(long sleepTime) {
         try {
