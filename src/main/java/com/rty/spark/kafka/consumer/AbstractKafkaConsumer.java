@@ -1,8 +1,15 @@
 package com.rty.spark.kafka.consumer;
 
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,17 +50,37 @@ public abstract class AbstractKafkaConsumer {
 
     private void consumer() {
         ConsumerRecords<String, String> records = null;
-        //kafka拉取数据
-        process(records);
-        //拉取之后手动提交kafka的位移
-        submitOffset();
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(getProperties());
+        consumer.subscribe(Collections.singletonList(""));
+        Map<TopicPartition, OffsetAndMetadata> currOffsets = new HashMap<>();
+        while (true) {
+            //kafka拉取数据
+            records = consumer.poll(500);
+            Map<String, String> result = new HashMap<>();
+            records.forEach(record -> {
+                result.put(record.key(), record.value());
+                TopicPartition topicPartition = new TopicPartition(record.topic(), record.partition());
+                long offSet = record.offset() + 1;
+                currOffsets.put(topicPartition, new OffsetAndMetadata(offSet, ""));
+            });
+            process(result);
+            //拉取之后手动提交kafka的位移
+            submitAsyncOffset(consumer, currOffsets);
+        }
+
+
     }
 
-    private void submitOffset() {
-
+    private void submitAsyncOffset(KafkaConsumer<String, String> consumer, Map<TopicPartition, OffsetAndMetadata> currOffsets) {
+        consumer.commitAsync(currOffsets, (Map<TopicPartition, OffsetAndMetadata> offsets, Exception e) -> {
+                    if (e != null) {
+                        e.printStackTrace();
+                    }
+                }
+        );
     }
 
-    protected abstract void process(ConsumerRecords<String, String> records);
+    protected abstract void process(Map<String, String> result);
 
     private void sleep(long sleepTime) {
         try {
